@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Spacer</title>
+		<style>
+			body {
+				background: #000;
+			}
+			
+			canvas {
+				position: absolute;
+				left: 50%;
+				top: 50%;
+				transform: translate(-50%, -50%);
+				width: 100%;
+				height: 100%;
+				object-fit: contain;
+			}
+		</style>
+	</head>
+	<body>
+		<canvas width="800" height="600"></canvas>
+		<script type="module">
+			class Image
+			{
+				constructor(name, frames = 1)
+				{
+					this.img = document.createElement("img");
+					this.img.src = name;
+					this.frames = frames;
+				}
+				
+				get width()
+				{
+					return this.img.width / this.frames;
+				}
+				
+				get height()
+				{
+					return this.img.height;
+				}
+				
+				draw(x = 0, y = 0, frame = 0)
+				{
+					ctx.drawImage(
+						this.img,
+						frame * this.width,
+						0,
+						this.width,
+						this.height,
+						x,
+						y,
+						this.width,
+						this.height
+					);
+				}
+			}
+			
+			class Sprite
+			{
+				constructor(image = null, x = 0, y = 0, vx = 0, vy = 0)
+				{
+					this.image = image;
+					this.x = x;
+					this.y = y;
+					this.vx = vx;
+					this.vy = vy;
+					this.frame = 0;
+					this.bullets = [];
+					this.state = 0;
+				}
+				
+				get w()
+				{
+					return this.image ? this.image.width : 0;
+				}
+				
+				get h()
+				{
+					return this.image ? this.image.height : 0;
+				}
+				
+				die()
+				{
+				}
+				
+				collides(other)
+				{
+					return (
+						this.x < other.x + other.w &&
+						this.y < other.y + other.h &&
+						other.x < this.x + this.w &&
+						other.y < this.y + this.h
+					);
+				}
+				
+				shoot(dir, fx, fy)
+				{
+					bullets.push(new Bullet(this, dir, fx, fy));
+				}
+				
+				explode()
+				{
+					if(this.state === 0) {
+						this.state = 1;
+						this.image = explosion;
+						this.frame = -1;
+					}
+				}
+				
+				update()
+				{
+					if(this.state === 0) {
+						this.x += this.vx;
+						this.y += this.vy;
+						
+						if(this.x < 0) this.x = 800;
+						if(this.x > 800) this.x = 0;
+					}
+					else {
+						this.frame ++;
+						
+						if(this.frame === 8) {
+							this.die();
+						}
+					}
+				}
+				
+				draw()
+				{
+					if(this.image) {
+						this.image.draw(this.x, this.y, this.frame);
+					}
+				}
+			}
+			
+			class Player extends Sprite
+			{
+				constructor()
+				{
+					super(spaceship, 378, 520);
+					
+					this.state = 0;
+				}
+				
+				update()
+				{
+					player.vx = 0;
+					
+					if(this.state === 0) {
+						if(keyleft) {
+							player.vx -= 15;
+						}
+						
+						if(keyright) {
+							player.vx += 15;
+						}
+					}
+					
+					super.update();
+					
+					if(this.state === 0) {
+						if(keyspace) {
+							this.shoot(-25, 0, -36);
+						}
+					}
+				}
+				
+				explode()
+				{
+					super.explode();
+				}
+				
+				die()
+				{
+					chances --;
+					
+					if(chances === 0) {
+						restart();
+					}
+					
+					player = new Player();
+				}
+			}
+			
+			class Bullet extends Sprite
+			{
+				constructor(parent, dir, fx, fy)
+				{
+					super(
+						bullet,
+						parent.x + parent.image.width / (2 * parent.image.frames) + fx,
+						parent.y + parent.image.height / 2 + fy - dir,
+						0,
+						dir,
+					);
+					
+					this.parent = parent;
+				}
+				
+				update()
+				{
+					super.update();
+					
+					if(this.parent === player) {
+						enemies.some(enemy => {
+							if(this.collides(enemy)) {
+								enemy.explode();
+								this.die();
+								return true;
+							}
+						});
+					}
+					else {
+						if(this.collides(player)) {
+							player.explode();
+							return this.die();
+						}
+					}
+					
+					if(this.y < 0 || this.y > 600) {
+						return this.die();
+					}
+				}
+				
+				die()
+				{
+					bullets.splice(bullets.indexOf(this), 1);
+				}
+			}
+			
+			class Enemy extends Sprite
+			{
+				constructor()
+				{
+					super(
+						enemy,
+						rand(800) - enemy.width / 2,
+						-10,
+						rand(11) - 5,
+						10,
+					);
+				}
+				
+				explode()
+				{
+					if(this.state === 0) {
+						score++;
+					}
+					
+					super.explode();
+				}
+				
+				update()
+				{
+					super.update();
+					
+					if(this.state === 0) {
+						if(this.collides(player)) {
+							this.explode();
+							player.explode();
+							return;
+						}
+						
+						if(rand(100) < 20) {
+							this.shoot(27, 0, 24);
+						}
+						
+						if(this.y > 600) {
+							this.die();
+						}
+					}
+				}
+				
+				die()
+				{
+					enemies.splice(enemies.indexOf(this), 1);
+				}
+			}
+			
+			function rand(upper)
+			{
+				return ~~(Math.random() * upper);
+			}
+			
+			function spawnEnemy()
+			{
+				enemies.push(new Enemy());
+			}
+			
+			function restart()
+			{
+				score = 0;
+				bullets = [];
+				enemies = [];
+				chances = 3;
+			}
+			
+			const fps = 30;
+			let canvas = document.querySelector("canvas");
+			let ctx = canvas.getContext("2d");
+			let background = new Image("background.png");
+			let spaceship = new Image("spaceship.png");
+			let bullet = new Image("bullet.png");
+			let enemy = new Image("enemy.png");
+			let explosion = new Image("explosion.png", 8);
+			let icon1 = new Image("icon1.png");
+			let icon2 = new Image("icon2.png");
+			let player = new Player();
+			let keyleft = false;
+			let keyright = false;
+			let keyspace = false;
+			let bullets = [];
+			let enemies = [];
+			let chances = 3;
+			let last = performance.now();
+			let score = 0;
+			
+			window.onkeydown = e => {
+				if(e.key === "ArrowLeft" && keyleft === false) {
+					keyleft = true;
+				}
+				if(e.key === "ArrowRight" && keyright === false) {
+					keyright = true;
+				}
+				if(e.key === " ") {
+					keyspace = true;
+				}
+			};
+			
+			window.onkeyup = e => {
+				if(e.key === "ArrowLeft" && keyleft === true) {
+					keyleft = false;
+				}
+				if(e.key === "ArrowRight" && keyright === true) {
+					keyright = false;
+				}
+				if(e.key === " ") {
+					keyspace = false;
+				}
+			};
+			
+			ctx.fillStyle = "#fff";
+			ctx.font = "16px sans-serif";
+			
+			requestAnimationFrame(frame);
+			
+			function frame()
+			{
+				requestAnimationFrame(frame);
+				
+				let now = performance.now();
+				let delta = now - last;
+				
+				if(delta < 1000 / fps) {
+					return;
+				}
+				
+				if(delta >= 1000) {
+					last += delta;
+				}
+				else {
+					last += 1000 / fps;
+				}
+				
+				if(enemies.length < 10 && rand(100) < 5) {
+					spawnEnemy();
+				}
+				
+				background.draw(0, 0);
+				player.update();
+				player.draw();
+				
+				bullets.slice().forEach(bullet => {
+					bullet.update();
+					bullet.draw();
+				});
+				
+				enemies.slice().forEach(enemy => {
+					enemy.update();
+					enemy.draw();
+				});
+				
+				ctx.fillText("Score: " + score, 30, 46);
+				
+				if(chances > 0) {
+					icon2.draw(610, 30);
+				}
+				
+				for(let i=0; i < chances - 1; i++) {
+					icon1.draw(680 + i * icon1.width, 40);
+				}
+			}
+		</script>
+	</body>
+</html>
