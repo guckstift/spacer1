@@ -21,6 +21,8 @@
 	<body>
 		<canvas width="800" height="600"></canvas>
 		<script type="module">
+			let imgsToLoad = 0;
+			
 			class Image
 			{
 				constructor(name, frames = 1)
@@ -28,6 +30,16 @@
 					this.img = document.createElement("img");
 					this.img.src = name;
 					this.frames = frames;
+					
+					imgsToLoad ++;
+					
+					this.img.onload = () => {
+						imgsToLoad --;
+						
+						if(imgsToLoad === 0) {
+							allImagesReady();
+						}
+					};
 				}
 				
 				get width()
@@ -299,7 +311,7 @@
 			const fps = 30;
 			let canvas = document.querySelector("canvas");
 			let ctx = canvas.getContext("2d");
-			let background = new Image("background.png");
+			let background = new Image("background.jpg");
 			let spaceship = new Image("spaceship.png");
 			let bullet = new Image("bullet.png");
 			let enemy = new Image("enemy.png");
@@ -343,7 +355,10 @@
 			ctx.fillStyle = "#fff";
 			ctx.font = "16px sans-serif";
 			
-			requestAnimationFrame(frame);
+			function allImagesReady()
+			{
+				requestAnimationFrame(frame);
+			}
 			
 			function frame()
 			{
